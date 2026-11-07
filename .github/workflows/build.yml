@@ -21,36 +21,6 @@ jobs:
 
       - name: Create project files
         run: |
-          cat > settings.gradle.kts <<'N7EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          rootProject.name = "N7ELITE"
-          include(":app")
-          N7EOF
-          cat > build.gradle.kts <<'N7EOF'
-          plugins {
-              id("com.android.application") version "8.5.2" apply false
-              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
-          }
-          N7EOF
-          cat > gradle.properties <<'N7EOF'
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          android.useAndroidX=true
-          kotlin.code.style=official
-          android.nonTransitiveRClass=true
-          N7EOF
           mkdir -p app
           cat > app/build.gradle.kts <<'N7EOF'
           plugins {
@@ -123,6 +93,1702 @@ jobs:
 
           </manifest>
           N7EOF
+          mkdir -p app/src/main/java/com/n7elite/gaming
+          cat > app/src/main/java/com/n7elite/gaming/MainActivity.kt <<'N7EOF'
+          package com.n7elite.gaming
+
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.BackHandler
+          import androidx.activity.compose.setContent
+          import androidx.compose.animation.core.RepeatMode
+          import androidx.compose.animation.core.animateFloat
+          import androidx.compose.animation.core.infiniteRepeatable
+          import androidx.compose.animation.core.rememberInfiniteTransition
+          import androidx.compose.animation.core.tween
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.material3.CircularProgressIndicator
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Brush
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.n7elite.gaming.data.AppState
+          import com.n7elite.gaming.ui.*
+          import com.n7elite.gaming.ui.theme.*
+          import kotlinx.coroutines.delay
+
+          class MainActivity : ComponentActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContent {
+                      N7Theme {
+                          N7App()
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun N7App() {
+              val ctx = LocalContext.current
+              val app = remember { AppState(ctx.applicationContext) }
+              var splash by remember { mutableStateOf(true) }
+              var screen by remember { mutableStateOf(Screen.Dashboard) }
+
+              LaunchedEffect(Unit) {
+                  delay(1400)
+                  splash = false
+              }
+              BackHandler(enabled = !splash && screen != Screen.Dashboard) { screen = Screen.Dashboard }
+
+              if (splash) {
+                  SplashScreen()
+              } else if (!app.onboarded) {
+                  OnboardingScreen { app.finishOnboarding() }
+              } else {
+                  val back = { screen = Screen.Dashboard }
+                  Box(
+                      Modifier
+                          .fillMaxSize()
+                          .background(Brush.verticalGradient(listOf(N7Black, N7Charcoal)))
+                          .statusBarsPadding()
+                          .navigationBarsPadding()
+                  ) {
+                      when (screen) {
+                          Screen.Dashboard -> DashboardScreen(app) { screen = it }
+                          Screen.Sensitivity -> SensitivityScreen(app, back)
+                          Screen.Profiles -> ProfilesScreen(app, back)
+                          Screen.Hud -> HudScreen(app, back)
+                          Screen.Aim -> AimScreen(app, back)
+                          Screen.Recoil -> RecoilScreen(app, back)
+                          Screen.Perf -> PerformanceScreen(back)
+                          Screen.Settings -> SettingsScreen(app, back)
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun SplashScreen() {
+              val t = rememberInfiniteTransition(label = "splash")
+              val a by t.animateFloat(0.3f, 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "alpha")
+              Box(Modifier.fillMaxSize().background(N7Black), contentAlignment = Alignment.Center) {
+                  Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                      Text(
+                          "N7 ELITE", color = N7Red.copy(alpha = a), fontSize = 38.sp,
+                          fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace, letterSpacing = 4.sp
+                      )
+                      Spacer(Modifier.height(20.dp))
+                      CircularProgressIndicator(color = N7Blue)
+                  }
+              }
+          }
+
+          @Composable
+          fun OnboardingScreen(onDone: () -> Unit) {
+              val pages = listOf(
+                  "Welcome to N7 ELITE" to "A training and planning panel for Free Fire players: sensitivity presets, a HUD layout planner, an aim trainer and a recoil simulator.",
+                  "Presets, not hacks" to "N7 ELITE never touches Free Fire. It does not change game settings, read game memory or automate anything. You copy the values into the game yourself.",
+                  "Train, then tune" to "Play the Aim Training and Recoil Simulator, then let the Sensitivity Manager suggest small changes based on your real results."
+              )
+              var i by remember { mutableIntStateOf(0) }
+              Column(
+                  Modifier.fillMaxSize().background(N7Black).statusBarsPadding().navigationBarsPadding().padding(28.dp),
+                  verticalArrangement = Arrangement.Center
+              ) {
+                  Text(pages[i].first, color = N7Red, fontSize = 26.sp, fontWeight = FontWeight.Black)
+                  Spacer(Modifier.height(14.dp))
+                  Text(pages[i].second, fontSize = 16.sp, lineHeight = 24.sp)
+                  Spacer(Modifier.height(10.dp))
+                  Text("${i + 1} / ${pages.size}", color = N7TextDim, fontSize = 12.sp)
+                  Spacer(Modifier.height(24.dp))
+                  Btn(if (i < pages.size - 1) "Next" else "Get started") {
+                      if (i < pages.size - 1) i++ else onDone()
+                  }
+              }
+          }
+          N7EOF
+          mkdir -p app/src/main/java/com/n7elite/gaming/data
+          cat > app/src/main/java/com/n7elite/gaming/data/AppState.kt <<'N7EOF'
+          package com.n7elite.gaming.data
+
+          import android.content.Context
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.mutableStateOf
+          import androidx.compose.runtime.setValue
+          import org.json.JSONArray
+          import org.json.JSONObject
+          import java.util.UUID
+
+          /** Holds everything the app remembers. Saved on this phone only (SharedPreferences). */
+          class AppState(context: Context) {
+              private val sp = context.getSharedPreferences("n7elite", Context.MODE_PRIVATE)
+
+              var profiles by mutableStateOf(loadProfiles())
+              var activeId by mutableStateOf(sp.getString("active", "") ?: "")
+              var records by mutableStateOf(loadRecords())
+              var activity by mutableStateOf(loadActivity())
+              var haptics by mutableStateOf(sp.getBoolean("haptics", true))
+              var onboarded by mutableStateOf(sp.getBoolean("onboarded", false))
+              var recoilBest by mutableStateOf(sp.getInt("recoilBest", 0))
+
+              val active: Profile
+                  get() = profiles.firstOrNull { it.id == activeId } ?: profiles.first()
+
+              init {
+                  if (profiles.none { it.id == activeId }) {
+                      activeId = profiles.first().id
+                      save()
+                  }
+              }
+
+              private fun newProfile(style: String, name: String = "$style Player") =
+                  Profile(UUID.randomUUID().toString(), name, style, Sens.template(style), Hud.preset("Default"), 1)
+
+              private fun loadProfiles(): List<Profile> {
+                  try {
+                      val s = sp.getString("profiles", null)
+                      if (s != null) {
+                          val a = JSONArray(s)
+                          val l = List(a.length()) { Profile.fromJson(a.getJSONObject(it)) }
+                          if (l.isNotEmpty()) return l
+                      }
+                  } catch (e: Exception) {
+                  }
+                  return listOf("Balanced", "Rush", "Sniper", "Custom").map { newProfile(it) }
+              }
+
+              private fun loadRecords(): List<TrainRecord> {
+                  return try {
+                      val a = JSONArray(sp.getString("records", "[]"))
+                      List(a.length()) { TrainRecord.fromJson(a.getJSONObject(it)) }
+                  } catch (e: Exception) {
+                      emptyList()
+                  }
+              }
+
+              private fun loadActivity(): List<String> {
+                  return try {
+                      val a = JSONArray(sp.getString("activity", "[]"))
+                      List(a.length()) { a.getString(it) }
+                  } catch (e: Exception) {
+                      emptyList()
+                  }
+              }
+
+              fun save() {
+                  val a = JSONArray()
+                  profiles.forEach { a.put(it.toJson()) }
+                  sp.edit().putString("profiles", a.toString()).putString("active", activeId).apply()
+              }
+
+              fun update(p: Profile, save: Boolean = true) {
+                  profiles = profiles.map { if (it.id == p.id) p else it }
+                  if (save) this.save()
+              }
+
+              fun addProfile(style: String) {
+                  val p = newProfile(style, "$style Player ${profiles.size + 1}")
+                  profiles = profiles + p
+                  save()
+                  log("Created profile ${p.name}")
+              }
+
+              fun duplicate(p: Profile) {
+                  val c = p.copy(id = UUID.randomUUID().toString(), name = (p.name + " copy").take(24))
+                  profiles = profiles + c
+                  save()
+                  log("Duplicated ${p.name}")
+              }
+
+              fun delete(p: Profile) {
+                  if (profiles.size <= 1) return
+                  profiles = profiles.filter { it.id != p.id }
+                  if (activeId == p.id) activeId = profiles.first().id
+                  save()
+                  log("Deleted ${p.name}")
+              }
+
+              fun setActive(id: String) {
+                  activeId = id
+                  save()
+                  log("Active profile: ${active.name}")
+              }
+
+              fun log(msg: String) {
+                  activity = (listOf("${System.currentTimeMillis()}|$msg") + activity).take(12)
+                  sp.edit().putString("activity", JSONArray(activity).toString()).apply()
+              }
+
+              fun best(mode: String, diff: String): Int = sp.getInt("best_${mode}_$diff", 0)
+
+              fun addRecord(r: TrainRecord) {
+                  if (r.score > best(r.mode, r.diff)) sp.edit().putInt("best_${r.mode}_${r.diff}", r.score).apply()
+                  records = (listOf(r) + records).take(50)
+                  val a = JSONArray()
+                  records.forEach { a.put(it.toJson()) }
+                  sp.edit().putString("records", a.toString()).apply()
+                  log("${r.mode} ${r.diff}: score ${r.score}, accuracy ${r.accuracy}%")
+              }
+
+              fun setRecoilBest(v: Int) {
+                  recoilBest = v
+                  sp.edit().putInt("recoilBest", v).apply()
+              }
+
+              fun setHaptics(v: Boolean) {
+                  haptics = v
+                  sp.edit().putBoolean("haptics", v).apply()
+              }
+
+              fun finishOnboarding() {
+                  onboarded = true
+                  sp.edit().putBoolean("onboarded", true).apply()
+              }
+
+              fun exportJson(p: Profile): String =
+                  JSONObject().put("n7elite", 1).put("profile", p.toJson()).toString()
+
+              fun importJson(text: String): String {
+                  return try {
+                      val o = JSONObject(text.trim())
+                      val p = Profile.fromJson(o.getJSONObject("profile"))
+                      val np = p.copy(id = UUID.randomUUID().toString(), name = (p.name + " (imported)").take(30))
+                      profiles = profiles + np
+                      save()
+                      log("Imported ${np.name}")
+                      "Imported: ${np.name}"
+                  } catch (e: Exception) {
+                      "That text is not a valid N7 ELITE configuration."
+                  }
+              }
+
+              fun resetAll() {
+                  sp.edit().clear().putBoolean("onboarded", true).apply()
+                  profiles = loadProfiles()
+                  activeId = profiles.first().id
+                  records = emptyList()
+                  activity = emptyList()
+                  recoilBest = 0
+                  haptics = true
+                  save()
+              }
+          }
+          N7EOF
+          mkdir -p app/src/main/java/com/n7elite/gaming/data
+          cat > app/src/main/java/com/n7elite/gaming/data/DeviceReader.kt <<'N7EOF'
+          package com.n7elite.gaming.data
+
+          import android.app.ActivityManager
+          import android.content.Context
+          import android.content.Intent
+          import android.content.IntentFilter
+          import android.os.BatteryManager
+          import android.os.Build
+          import android.os.Environment
+          import android.os.StatFs
+          import android.view.WindowManager
+
+          /** Real values read from the phone. Null means "Android did not give us this value". */
+          data class DeviceSnapshot(
+              val model: String,
+              val androidVersion: String,
+              val totalRamMb: Long,
+              val availRamMb: Long,
+              val totalStorageGb: Double,
+              val freeStorageGb: Double,
+              val batteryPercent: Int?,
+              val batteryTempC: Float?,
+              val charging: Boolean?,
+              val densityDpi: Int,
+              val resolution: String,
+              val refreshHz: Float,
+              val cores: Int,
+              val appMemMb: Long
+          )
+
+          object DeviceReader {
+              @Suppress("DEPRECATION")
+              fun read(context: Context): DeviceSnapshot {
+                  val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                  val mem = ActivityManager.MemoryInfo()
+                  am.getMemoryInfo(mem)
+
+                  val stat = StatFs(Environment.getDataDirectory().path)
+                  val gb = 1024.0 * 1024.0 * 1024.0
+
+                  val battery: Intent? = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                  val level = battery?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                  val scale = battery?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+                  val percent = if (level >= 0 && scale > 0) level * 100 / scale else null
+                  val tempRaw = battery?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
+                  val temp = if (tempRaw != null && tempRaw != Int.MIN_VALUE) tempRaw / 10f else null
+                  val status = battery?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+                  val charging = if (battery == null) null else
+                      (status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL)
+
+                  val dm = context.resources.displayMetrics
+                  val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+                  val hz = try { wm.defaultDisplay.refreshRate } catch (e: Exception) { 0f }
+                  val rt = Runtime.getRuntime()
+
+                  return DeviceSnapshot(
+                      model = "${Build.MANUFACTURER} ${Build.MODEL}",
+                      androidVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
+                      totalRamMb = mem.totalMem / (1024 * 1024),
+                      availRamMb = mem.availMem / (1024 * 1024),
+                      totalStorageGb = stat.totalBytes / gb,
+                      freeStorageGb = stat.availableBytes / gb,
+                      batteryPercent = percent,
+                      batteryTempC = temp,
+                      charging = charging,
+                      densityDpi = dm.densityDpi,
+                      resolution = "${dm.widthPixels} x ${dm.heightPixels}",
+                      refreshHz = hz,
+                      cores = rt.availableProcessors(),
+                      appMemMb = (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024)
+                  )
+              }
+          }
+          N7EOF
+          mkdir -p app/src/main/java/com/n7elite/gaming/data
+          cat > app/src/main/java/com/n7elite/gaming/data/Models.kt <<'N7EOF'
+          package com.n7elite.gaming.data
+
+          import org.json.JSONArray
+          import org.json.JSONObject
+
+          val SENS_LABELS = listOf("General", "Red Dot", "2X Scope", "4X Scope", "Sniper Scope", "Free Look")
+
+          data class Sens(val v: List<Int> = listOf(90, 85, 80, 75, 60, 70)) {
+              fun set(i: Int, x: Int): Sens = Sens(v.toMutableList().also { it[i] = x.coerceIn(0, 100) })
+
+              fun toJson(): JSONArray {
+                  val a = JSONArray()
+                  v.forEach { a.put(it) }
+                  return a
+              }
+
+              companion object {
+                  fun template(style: String): Sens = when (style) {
+                      "Rush" -> Sens(listOf(95, 90, 85, 80, 70, 65))
+                      "Sniper" -> Sens(listOf(85, 80, 75, 72, 55, 60))
+                      else -> Sens(listOf(90, 85, 80, 75, 60, 70))
+                  }
+
+                  fun fromJson(a: JSONArray?): Sens {
+                      if (a == null || a.length() != 6) return Sens()
+                      return Sens(List(6) { a.optInt(it, 50).coerceIn(0, 100) })
+                  }
+              }
+          }
+
+          data class HudItem(val id: String, val label: String, val x: Float, val y: Float)
+
+          data class Hud(val items: List<HudItem>, val fireSize: Int = 80, val opacity: Int = 70) {
+              fun move(id: String, x: Float, y: Float): Hud =
+                  copy(items = items.map { if (it.id == id) it.copy(x = x, y = y) else it })
+
+              fun toJson(): JSONObject {
+                  val a = JSONArray()
+                  items.forEach {
+                      a.put(JSONObject().put("id", it.id).put("l", it.label).put("x", it.x.toDouble()).put("y", it.y.toDouble()))
+                  }
+                  return JSONObject().put("items", a).put("fs", fireSize).put("op", opacity)
+              }
+
+              companion object {
+                  fun preset(name: String): Hud {
+                      val base = listOf(
+                          HudItem("fire", "FIRE", 0.86f, 0.62f),
+                          HudItem("fireL", "FIRE", 0.12f, 0.62f),
+                          HudItem("jump", "JUMP", 0.94f, 0.86f),
+                          HudItem("crouch", "CRCH", 0.78f, 0.86f),
+                          HudItem("scope", "SCOPE", 0.80f, 0.38f),
+                          HudItem("reload", "RLD", 0.66f, 0.84f)
+                      )
+                      return when (name) {
+                          "Wide fire" -> Hud(base, 100, 85)
+                          "Compact" -> Hud(
+                              base.map { it.copy(x = if (it.x > 0.5f) it.x + 0.04f else it.x - 0.04f) },
+                              60, 60
+                          )
+                          else -> Hud(base, 80, 70)
+                      }
+                  }
+
+                  fun fromJson(o: JSONObject?): Hud {
+                      if (o == null) return preset("Default")
+                      val a = o.optJSONArray("items") ?: return preset("Default")
+                      val list = List(a.length()) {
+                          val j = a.getJSONObject(it)
+                          HudItem(
+                              j.getString("id"), j.optString("l", "?"),
+                              j.optDouble("x", 0.5).toFloat().coerceIn(0f, 1f),
+                              j.optDouble("y", 0.5).toFloat().coerceIn(0f, 1f)
+                          )
+                      }
+                      if (list.isEmpty()) return preset("Default")
+                      return Hud(list, o.optInt("fs", 80).coerceIn(40, 120), o.optInt("op", 70).coerceIn(20, 100))
+                  }
+              }
+          }
+
+          data class Profile(
+              val id: String,
+              val name: String,
+              val style: String,
+              val sens: Sens,
+              val hud: Hud,
+              val difficulty: Int = 1
+          ) {
+              fun toJson(): JSONObject = JSONObject()
+                  .put("id", id).put("name", name).put("style", style)
+                  .put("sens", sens.toJson()).put("hud", hud.toJson()).put("diff", difficulty)
+
+              companion object {
+                  fun fromJson(o: JSONObject): Profile = Profile(
+                      o.getString("id"),
+                      o.optString("name", "Profile"),
+                      o.optString("style", "Custom"),
+                      Sens.fromJson(o.optJSONArray("sens")),
+                      Hud.fromJson(o.optJSONObject("hud")),
+                      o.optInt("diff", 1).coerceIn(0, 2)
+                  )
+              }
+          }
+
+          data class TrainRecord(
+              val time: Long,
+              val mode: String,
+              val diff: String,
+              val score: Int,
+              val hits: Int,
+              val misses: Int,
+              val accuracy: Int,
+              val avgReaction: Int
+          ) {
+              fun toJson(): JSONObject = JSONObject()
+                  .put("t", time).put("m", mode).put("d", diff).put("s", score)
+                  .put("h", hits).put("x", misses).put("a", accuracy).put("r", avgReaction)
+
+              companion object {
+                  fun fromJson(o: JSONObject) = TrainRecord(
+                      o.getLong("t"), o.getString("m"), o.getString("d"), o.getInt("s"),
+                      o.getInt("h"), o.getInt("x"), o.getInt("a"), o.optInt("r", 0)
+                  )
+              }
+          }
+          N7EOF
+          mkdir -p app/src/main/java/com/n7elite/gaming/ui
+          cat > app/src/main/java/com/n7elite/gaming/ui/AimScreen.kt <<'N7EOF'
+          package com.n7elite.gaming.ui
+
+          import androidx.compose.foundation.Canvas
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.draw.clip
+          import androidx.compose.ui.geometry.Offset
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.graphics.drawscope.Stroke
+          import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+          import androidx.compose.ui.input.pointer.pointerInput
+          import androidx.compose.ui.layout.onSizeChanged
+          import androidx.compose.ui.platform.LocalDensity
+          import androidx.compose.ui.platform.LocalHapticFeedback
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.n7elite.gaming.data.*
+          import com.n7elite.gaming.ui.theme.*
+          import kotlin.math.cos
+          import kotlin.math.hypot
+          import kotlin.math.roundToInt
+          import kotlin.math.sin
+          import kotlin.random.Random
+
+          @Composable
+          fun AimScreen(app: AppState, onBack: () -> Unit) {
+              val dens = LocalDensity.current.density
+              val haptic = LocalHapticFeedback.current
+              var mode by remember { mutableStateOf("Static") }
+              var diff by remember { mutableIntStateOf(app.active.difficulty) }
+              var phase by remember { mutableIntStateOf(0) } // 0 ready, 1 running, 2 finished
+              var w by remember { mutableFloatStateOf(600f) }
+              var h by remember { mutableFloatStateOf(800f) }
+              var timeLeft by remember { mutableFloatStateOf(30f) }
+              var hits by remember { mutableIntStateOf(0) }
+              var misses by remember { mutableIntStateOf(0) }
+              var tx by remember { mutableFloatStateOf(0f) }
+              var ty by remember { mutableFloatStateOf(0f) }
+              var vx by remember { mutableFloatStateOf(0f) }
+              var vy by remember { mutableFloatStateOf(0f) }
+              var visible by remember { mutableStateOf(true) }
+              var spawnAt by remember { mutableLongStateOf(0L) }
+              var shownAt by remember { mutableLongStateOf(0L) }
+              var reactSum by remember { mutableLongStateOf(0L) }
+              var reactN by remember { mutableIntStateOf(0) }
+              var trackOn by remember { mutableFloatStateOf(0f) }
+              var trackTotal by remember { mutableFloatStateOf(0f) }
+              var pointer by remember { mutableStateOf<Offset?>(null) }
+              var result by remember { mutableStateOf<TrainRecord?>(null) }
+              var newBest by remember { mutableStateOf(false) }
+              val radius = listOf(62f, 44f, 30f)[diff] * dens
+              val speed = listOf(150f, 250f, 380f)[diff] * dens
+              val scroll = rememberScrollState()
+
+              fun spawn() {
+                  val m = radius + 6f
+                  tx = m + Random.nextFloat() * (w - 2f * m).coerceAtLeast(1f)
+                  ty = m + Random.nextFloat() * (h - 2f * m).coerceAtLeast(1f)
+                  if (mode == "Moving" || mode == "Tracking") {
+                      val a = Random.nextFloat() * 6.2831f
+                      vx = cos(a) * speed
+                      vy = sin(a) * speed
+                  } else {
+                      vx = 0f
+                      vy = 0f
+                  }
+              }
+
+              fun start() {
+                  hits = 0; misses = 0; reactSum = 0L; reactN = 0; trackOn = 0f; trackTotal = 0f
+                  timeLeft = 30f; result = null; newBest = false; pointer = null
+                  spawn()
+                  if (mode == "Reaction") {
+                      visible = false
+                      spawnAt = System.currentTimeMillis() + Random.nextLong(900L, 2200L)
+                  } else {
+                      visible = true
+                  }
+                  phase = 1
+              }
+
+              fun finish() {
+                  val tr = mode == "Tracking"
+                  val acc = if (tr) (trackOn / trackTotal.coerceAtLeast(0.01f) * 100f).roundToInt()
+                  else if (hits + misses > 0) hits * 100 / (hits + misses) else 0
+                  val score = if (tr) acc * 10 else maxOf(0, hits * 10 - misses * 3)
+                  val rec = TrainRecord(
+                      System.currentTimeMillis(), mode, DIFFS[diff], score,
+                      if (tr) trackOn.roundToInt() else hits,
+                      if (tr) (trackTotal - trackOn).roundToInt() else misses,
+                      acc, if (reactN > 0) (reactSum / reactN).toInt() else 0
+                  )
+                  newBest = score > app.best(mode, DIFFS[diff])
+                  app.addRecord(rec)
+                  result = rec
+                  phase = 2
+              }
+
+              fun onTap(p: Offset) {
+                  if (phase != 1 || mode == "Tracking") return
+                  val now = System.currentTimeMillis()
+                  if (visible && hypot(p.x - tx, p.y - ty) <= radius) {
+                      hits++
+                      if (app.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                      if (mode == "Reaction") {
+                          reactSum += now - shownAt
+                          reactN++
+                          visible = false
+                          spawnAt = now + Random.nextLong(900L, 2200L)
+                      } else {
+                          spawn()
+                      }
+                  } else {
+                      misses++
+                  }
+              }
+
+              LaunchedEffect(phase) {
+                  if (phase == 1) {
+                      var last = withFrameNanos { it }
+                      while (phase == 1) {
+                          val now = withFrameNanos { it }
+                          val dt = ((now - last) / 1_000_000_000f).coerceAtMost(0.05f)
+                          last = now
+                          timeLeft -= dt
+                          if (mode == "Moving" || mode == "Tracking") {
+                              tx += vx * dt
+                              ty += vy * dt
+                              if (tx < radius) { tx = radius; vx = kotlin.math.abs(vx) }
+                              if (tx > w - radius) { tx = w - radius; vx = -kotlin.math.abs(vx) }
+                              if (ty < radius) { ty = radius; vy = kotlin.math.abs(vy) }
+                              if (ty > h - radius) { ty = h - radius; vy = -kotlin.math.abs(vy) }
+                          }
+                          if (mode == "Reaction" && !visible && System.currentTimeMillis() >= spawnAt) {
+                              spawn()
+                              visible = true
+                              shownAt = System.currentTimeMillis()
+                          }
+                          if (mode == "Tracking") {
+                              trackTotal += dt
+                              val pt = pointer
+                              if (pt != null && hypot(pt.x - tx, pt.y - ty) <= radius * 1.2f) trackOn += dt
+                          }
+                          if (timeLeft <= 0f) finish()
+                      }
+                  }
+              }
+
+              val liveAcc = if (mode == "Tracking") {
+                  if (trackTotal > 0f) (trackOn / trackTotal * 100f).roundToInt() else 0
+              } else if (hits + misses > 0) hits * 100 / (hits + misses) else 0
+
+              Column(
+                  Modifier.fillMaxSize().verticalScroll(scroll, enabled = phase != 1).padding(16.dp),
+                  verticalArrangement = Arrangement.spacedBy(12.dp)
+              ) {
+                  Header("AIM TRAINING", onBack)
+
+                  GlassCard("SETUP") {
+                      Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                          AIM_MODES.forEach { m -> Chip(m, mode == m, enabled = phase != 1) { mode = m } }
+                      }
+                      Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                          DIFFS.forEachIndexed { i, d -> Chip(d, diff == i, enabled = phase != 1) { diff = i } }
+                      }
+                      Dim(
+                          when (mode) {
+                              "Static" -> "Tap each target as fast as you can. Targets stay still."
+                              "Moving" -> "Tap targets while they bounce around."
+                              "Reaction" -> "Wait for the target, then tap it. Early taps count as misses."
+                              else -> "Keep your finger on the moving target. Score is the % of time on target."
+                          } + " 30 seconds."
+                      )
+                      Btn(if (phase == 1) "Running..." else "Start", enabled = phase != 1) { start() }
+                  }
+
+                  Text(
+                      "Time ${"%.1f".format(timeLeft.coerceAtLeast(0f))}s   Hits $hits   Misses $misses   Acc $liveAcc%",
+                      fontWeight = FontWeight.Bold, fontSize = 14.sp
+                  )
+
+                  Box(
+                      Modifier
+                          .fillMaxWidth()
+                          .height(380.dp)
+                          .clip(RoundedCornerShape(14.dp))
+                          .background(Color(0xFF0E1620))
+                          .onSizeChanged { w = it.width.toFloat(); h = it.height.toFloat() }
+                          .pointerInput(diff, mode) {
+                              awaitPointerEventScope {
+                                  while (true) {
+                                      val ev = awaitPointerEvent()
+                                      val c = ev.changes.firstOrNull() ?: continue
+                                      if (phase == 1) {
+                                          pointer = if (c.pressed) c.position else null
+                                          if (c.pressed && !c.previousPressed) onTap(c.position)
+                                          c.consume()
+                                      }
+                                  }
+                              }
+                          }
+                  ) {
+                      Canvas(Modifier.fillMaxSize()) {
+                          if (phase == 1 && visible) {
+                              val c = Offset(tx, ty)
+                              drawCircle(N7Red, radius, c)
+                              drawCircle(Color.White, radius * 0.62f, c)
+                              drawCircle(N7Red, radius * 0.28f, c)
+                          }
+                          val pt = pointer
+                          if (mode == "Tracking" && pt != null) drawCircle(N7Blue, 16f, pt, style = Stroke(3f))
+                      }
+                      if (phase == 0) {
+                          Text("Pick a mode and difficulty, then tap Start", Modifier.align(Alignment.Center).padding(24.dp), color = N7TextDim)
+                      }
+                      if (phase == 1 && mode == "Reaction" && !visible) {
+                          Text("Wait for the target...", Modifier.align(Alignment.Center), color = N7Blue, fontSize = 18.sp)
+                      }
+                      if (phase == 2) {
+                          result?.let { r ->
+                              Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                  Text("ROUND COMPLETE", color = N7Red, fontWeight = FontWeight.Black, fontSize = 20.sp)
+                                  Text("Score ${r.score}", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                                  Text("Accuracy ${r.accuracy}%  |  ${r.hits} hit  |  ${r.misses} miss")
+                                  if (r.avgReaction > 0) Text("Average reaction ${r.avgReaction} ms")
+                                  if (newBest) Text("NEW PERSONAL BEST!", color = N7Blue, fontWeight = FontWeight.Bold)
+                              }
+                          }
+                      }
+                  }
+
+                  GlassCard("PERSONAL BEST ($mode, ${DIFFS[diff]})") {
+                      Text("${app.best(mode, DIFFS[diff])}", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = N7Blue)
+                  }
+
+                  GlassCard("TRAINING HISTORY") {
+                      if (app.records.isEmpty()) Dim("No rounds yet.")
+                      app.records.take(8).forEach {
+                          Text(
+                              "${it.mode} ${it.diff}: score ${it.score}, ${it.accuracy}%" + if (it.avgReaction > 0) ", ${it.avgReaction} ms" else "",
+                              fontSize = 12.sp, modifier = Modifier.padding(vertical = 2.dp)
+                          )
+                      }
+                  }
+              }
+          }
+          N7EOF
+          mkdir -p app/src/main/java/com/n7elite/gaming/ui
+          cat > app/src/main/java/com/n7elite/gaming/ui/Components.kt <<'N7EOF'
+          package com.n7elite.gaming.ui
+
+          import androidx.compose.foundation.BorderStroke
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Brush
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.n7elite.gaming.ui.theme.*
+          import java.text.SimpleDateFormat
+          import java.util.Date
+          import java.util.Locale
+
+          enum class Screen(val title: String, val desc: String) {
+              Dashboard("Dashboard", ""),
+              Sensitivity("Sensitivity Manager", "Sliders, live preview, presets, import/export"),
+              Profiles("Gaming Profiles", "Rush, Sniper, Balanced and Custom"),
+              Hud("HUD Configurator", "Drag buttons, size and opacity"),
+              Aim("Aim Training", "Targets, reaction time, tracking"),
+              Recoil("Recoil Simulator", "Drag-control practice"),
+              Perf("Device Performance", "Real readings and advice"),
+              Settings("Settings", "Vibration and data")
+          }
+
+          val AIM_MODES = listOf("Static", "Moving", "Reaction", "Tracking")
+          val DIFFS = listOf("Easy", "Medium", "Hard")
+
+          fun fmtActivity(s: String): String {
+              val i = s.indexOf('|')
+              if (i < 0) return s
+              val t = s.substring(0, i).toLongOrNull() ?: return s
+              return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(t)) + "  " + s.substring(i + 1)
+          }
+
+          @Composable
+          fun GlassCard(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+              Card(
+                  modifier = modifier.fillMaxWidth(),
+                  shape = RoundedCornerShape(18.dp),
+                  colors = CardDefaults.cardColors(containerColor = Color(0x33FFFFFF)),
+                  border = BorderStroke(1.dp, Brush.linearGradient(listOf(N7Red, N7Blue)))
+              ) {
+                  Column(Modifier.padding(16.dp)) {
+                      if (title.isNotEmpty()) {
+                          Text(title, color = N7Blue, fontSize = 12.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
+                      }
+                      Column(Modifier.padding(top = 8.dp), content = content)
+                  }
+              }
+          }
+
+          @Composable
+          fun InfoRow(label: String, value: String) {
+              Row(
+                  Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.CenterVertically
+              ) {
+                  Text(label, color = N7TextDim, fontSize = 13.sp)
+                  Text(value, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+              }
+          }
+
+          @Composable
+          fun Dim(text: String) {
+              Text(text, color = N7TextDim, fontSize = 12.sp, modifier = Modifier.padding(vertical = 2.dp))
+          }
+
+          @Composable
+          fun Header(title: String, onBack: () -> Unit) {
+              Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                  TextButton(onClick = onBack) { Text("< Back", color = N7Blue) }
+                  Text(title, fontSize = 18.sp, fontWeight = FontWeight.Black, color = N7Red, fontFamily = FontFamily.Monospace)
+              }
+          }
+
+          @Composable
+          fun Btn(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+              Button(
+                  onClick = onClick,
+                  enabled = enabled,
+                  modifier = modifier,
+                  colors = ButtonDefaults.buttonColors(containerColor = N7Red)
+              ) { Text(text) }
+          }
+
+          @Composable
+          fun Chip(text: String, selected: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
+              FilterChip(
+                  selected = selected,
+                  enabled = enabled,
+                  onClick = onClick,
+                  label = { Text(text) },
+                  colors = FilterChipDefaults.filterChipColors(
+                      selectedContainerColor = N7Red,
+                      selectedLabelColor = Color.White
+                  )
+              )
+          }
+          N7EOF
+          mkdir -p app/src/main/java/com/n7elite/gaming/ui
+          cat > app/src/main/java/com/n7elite/gaming/ui/DashboardScreen.kt <<'N7EOF'
+          package com.n7elite.gaming.ui
+
+          import androidx.compose.foundation.clickable
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.n7elite.gaming.data.*
+          import com.n7elite.gaming.ui.theme.*
+
+          @Composable
+          fun DashboardScreen(app: AppState, go: (Screen) -> Unit) {
+              val context = LocalContext.current
+              var snap by remember { mutableStateOf(DeviceReader.read(context)) }
+              val p = app.active
+
+              Column(
+                  Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                  verticalArrangement = Arrangement.spacedBy(14.dp)
+              ) {
+                  Column {
+                      Text(
+                          "N7 ELITE", color = N7Red, fontSize = 34.sp, fontWeight = FontWeight.Black,
+                          fontFamily = FontFamily.Monospace, letterSpacing = 4.sp
+                      )
+                      Text("Gaming control panel", color = N7Blue, fontSize = 13.sp, letterSpacing = 2.sp)
+                  }
+
+                  GlassCard("ACTIVE PROFILE") {
+                      Text(p.name, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                      Dim(SENS_LABELS.indices.joinToString("  |  ") { "${SENS_LABELS[it]} ${p.sens.v[it]}" })
+                      Spacer(Modifier.height(8.dp))
+                      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                          Btn("Train aim", Modifier.weight(1f)) { go(Screen.Aim) }
+                          Btn("Sensitivity", Modifier.weight(1f)) { go(Screen.Sensitivity) }
+                      }
+                  }
+
+                  GlassCard("DEVICE") {
+                      InfoRow("Model", snap.model)
+                      InfoRow("System", snap.androidVersion)
+                      InfoRow("RAM free", "${snap.availRamMb} MB of ${snap.totalRamMb} MB")
+                      InfoRow("Storage free", "%.1f GB of %.1f GB".format(snap.freeStorageGb, snap.totalStorageGb))
+                      InfoRow("Battery", snap.batteryPercent?.let { "$it%" } ?: "Unavailable")
+                      InfoRow("Live FPS", "Not measurable by this app")
+                      Spacer(Modifier.height(6.dp))
+                      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                          Btn("Refresh") { snap = DeviceReader.read(context) }
+                          Btn("Full details") { go(Screen.Perf) }
+                      }
+                  }
+
+                  GlassCard("MODULES") {
+                      Screen.values().filter { it != Screen.Dashboard }.forEach { s ->
+                          Row(
+                              Modifier.fillMaxWidth().clickable { go(s) }.padding(vertical = 10.dp),
+                              horizontalArrangement = Arrangement.SpaceBetween,
+                              verticalAlignment = Alignment.CenterVertically
+                          ) {
+                              Column(Modifier.weight(1f)) {
+                                  Text(s.title, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                  Text(s.desc, color = N7TextDim, fontSize = 11.sp)
+                              }
+                              Text(">", color = N7Red, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                          }
+                      }
+                  }
+
+                  GlassCard("RECENT ACTIVITY") {
+                      if (app.activity.isEmpty()) Dim("Nothing yet. Change a sensitivity or play a training round.")
+                      app.activity.take(6).forEach { Text(fmtActivity(it), fontSize = 12.sp, modifier = Modifier.padding(vertical = 2.dp)) }
+                  }
+              }
+          }
+          N7EOF
+          mkdir -p app/src/main/java/com/n7elite/gaming/ui
+          cat > app/src/main/java/com/n7elite/gaming/ui/HudScreen.kt <<'N7EOF'
+          package com.n7elite.gaming.ui
+
+          import androidx.compose.foundation.Canvas
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.gestures.detectDragGestures
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.shape.CircleShape
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.draw.alpha
+          import androidx.compose.ui.draw.clip
+          import androidx.compose.ui.graphics.Brush
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.graphics.drawscope.Stroke
+          import androidx.compose.ui.input.pointer.pointerInput
+          import androidx.compose.ui.platform.LocalDensity
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.IntOffset
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.n7elite.gaming.data.*
+          import com.n7elite.gaming.ui.theme.*
+          import kotlin.math.roundToInt
+
+          @Composable
+          fun HudScreen(app: AppState, onBack: () -> Unit) {
+              val p = app.active
+              val hud = p.hud
+              val dens = LocalDensity.current.density
+
+              Column(
+                  Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                  verticalArrangement = Arrangement.spacedBy(14.dp)
+              ) {
+                  Header("HUD CONFIGURATOR", onBack)
+
+                  GlassCard("DRAG THE BUTTONS  |  ${p.name}") {
+                      BoxWithConstraints(
+                          Modifier
+                              .fillMaxWidth()
+                              .aspectRatio(2f)
+                              .clip(RoundedCornerShape(12.dp))
+                              .background(Brush.verticalGradient(listOf(Color(0xFF1B2A3A), Color(0xFF0E1620))))
+                      ) {
+                          val wPx = constraints.maxWidth.toFloat()
+                          val hPx = constraints.maxHeight.toFloat()
+                          Canvas(Modifier.fillMaxSize()) {
+                              drawCircle(Color(0x66FFFFFF), 16f, center, style = Stroke(2f))
+                              drawCircle(Color(0x66FFFFFF), 2f, center)
+                          }
+                          Text(
+                              "HP 100   AMMO 30/90   ALIVE 38",
+                              Modifier.align(Alignment.TopStart).padding(8.dp),
+                              fontSize = 10.sp, color = Color(0xCCFFFFFF)
+                          )
+                          hud.items.forEach { item ->
+                              val sizeDp = if (item.id.startsWith("fire")) hud.fireSize else 46
+                              val sizePx = sizeDp * dens
+                              Box(
+                                  Modifier
+                                      .offset { IntOffset((item.x * wPx - sizePx / 2f).roundToInt(), (item.y * hPx - sizePx / 2f).roundToInt()) }
+                                      .size(sizeDp.dp)
+                                      .alpha(hud.opacity / 100f)
+                                      .background(N7Red, CircleShape)
+                                      .pointerInput(item.id) {
+                                          detectDragGestures(onDragEnd = { app.save() }) { change, drag ->
+                                              change.consume()
+                                              val cur = app.active.hud.items.first { it.id == item.id }
+                                              val nh = app.active.hud.move(
+                                                  item.id,
+                                                  (cur.x + drag.x / wPx).coerceIn(0.04f, 0.96f),
+                                                  (cur.y + drag.y / hPx).coerceIn(0.06f, 0.94f)
+                                              )
+                                              app.update(app.active.copy(hud = nh), save = false)
+                                          }
+                                      },
+                                  contentAlignment = Alignment.Center
+                              ) {
+                                  Text(item.label, fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                              }
+                          }
+                      }
+                      Dim("A simulated game screen. Nothing is injected into Free Fire: copy these positions into the game's own HUD editor.")
+                  }
+
+                  GlassCard("SIZE AND OPACITY") {
+                      Row {
+                          Text("Fire button size", Modifier.weight(1f))
+                          Text("${hud.fireSize}", color = N7Blue, fontWeight = FontWeight.Bold)
+                      }
+                      Slider(
+                          value = hud.fireSize.toFloat(),
+                          onValueChange = { app.update(p.copy(hud = hud.copy(fireSize = it.roundToInt())), save = false) },
+                          onValueChangeFinished = { app.save(); app.log("Fire button size ${app.active.hud.fireSize}") },
+                          valueRange = 40f..120f,
+                          colors = SliderDefaults.colors(thumbColor = N7Red, activeTrackColor = N7Red)
+                      )
+                      Row {
+                          Text("Opacity", Modifier.weight(1f))
+                          Text("${hud.opacity}%", color = N7Blue, fontWeight = FontWeight.Bold)
+                      }
+                      Slider(
+                          value = hud.opacity.toFloat(),
+                          onValueChange = { app.update(p.copy(hud = hud.copy(opacity = it.roundToInt())), save = false) },
+                          onValueChangeFinished = { app.save(); app.log("HUD opacity ${app.active.hud.opacity}%") },
+                          valueRange = 20f..100f,
+                          colors = SliderDefaults.colors(thumbColor = N7Red, activeTrackColor = N7Red)
+                      )
+                  }
+
+                  GlassCard("HUD PRESETS") {
+                      Dim("Presets replace this profile's layout. Your layout is saved automatically per profile.")
+                      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                          listOf("Default", "Wide fire", "Compact").forEach { n ->
+                              Btn(n, Modifier.weight(1f)) {
+                                  app.update(p.copy(hud = Hud.preset(n)))
+                                  app.log("Applied HUD preset $n")
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+          N7EOF
+          mkdir -p app/src/main/java/com/n7elite/gaming/ui
+          cat > app/src/main/java/com/n7elite/gaming/ui/PerformanceScreen.kt <<'N7EOF'
+          package com.n7elite.gaming.ui
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material3.LinearProgressIndicator
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.n7elite.gaming.data.*
+          import com.n7elite.gaming.ui.theme.*
+          import kotlin.math.roundToInt
+          import kotlinx.coroutines.delay
+
+          @Composable
+          fun PerformanceScreen(onBack: () -> Unit) {
+              val ctx = LocalContext.current
+              var s by remember { mutableStateOf(DeviceReader.read(ctx)) }
+              LaunchedEffect(Unit) {
+                  while (true) {
+                      delay(3000)
+                      s = DeviceReader.read(ctx)
+                  }
+              }
+              val ramUsed = (1f - s.availRamMb.toFloat() / s.totalRamMb.toFloat()).coerceIn(0f, 1f)
+              val storUsed = (1.0 - s.freeStorageGb / s.totalStorageGb).toFloat().coerceIn(0f, 1f)
+
+              val tips = mutableListOf<String>()
+              val storFree = 100f - storUsed * 100f
+              if (storFree < 15f) tips.add("Free storage is ${storFree.roundToInt()}%. Keep at least 15 to 20% free for smooth games and updates. Remove unused apps, videos and cache.")
+              val ramFree = 100f - ramUsed * 100f
+              if (ramFree < 25f) tips.add("Only ${ramFree.roundToInt()}% of RAM is free. Close background apps from the recent apps screen before you play.")
+              s.batteryTempC?.let { if (it >= 40f) tips.add("Battery is ${"%.1f".format(it)} C. Remove the case, avoid charging while gaming and let the phone cool down.") }
+              s.batteryPercent?.let { if (it < 20 && s.charging != true) tips.add("Battery is $it%. Charge first or turn on battery saver; low battery can reduce performance.") }
+              if (tips.isEmpty()) tips.add("Your readings look healthy right now. Nothing needs fixing.")
+
+              Column(
+                  Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                  verticalArrangement = Arrangement.spacedBy(14.dp)
+              ) {
+                  Header("DEVICE PERFORMANCE", onBack)
+
+                  GlassCard("LIVE READINGS (every 3 seconds)") {
+                      InfoRow("Model", s.model)
+                      InfoRow("System", s.androidVersion)
+                      InfoRow("CPU cores", "${s.cores}")
+                      InfoRow("Screen", "${s.resolution} px")
+                      InfoRow("Screen density", "${s.densityDpi} dpi")
+                      InfoRow("Refresh rate", if (s.refreshHz > 0f) "${s.refreshHz.roundToInt()} Hz" else "Unavailable")
+                      Spacer(Modifier.height(8.dp))
+                      InfoRow("RAM free", "${s.availRamMb} MB of ${s.totalRamMb} MB")
+                      LinearProgressIndicator(progress = { ramUsed }, modifier = Modifier.fillMaxWidth(), color = N7Red, trackColor = Color(0x33FFFFFF))
+                      Spacer(Modifier.height(8.dp))
+                      InfoRow("Storage free", "%.1f GB of %.1f GB".format(s.freeStorageGb, s.totalStorageGb))
+                      LinearProgressIndicator(progress = { storUsed }, modifier = Modifier.fillMaxWidth(), color = N7Blue, trackColor = Color(0x33FFFFFF))
+                      Spacer(Modifier.height(8.dp))
+                      InfoRow("Battery", s.batteryPercent?.let { "$it%" + if (s.charging == true) " (charging)" else "" } ?: "Unavailable")
+                      InfoRow("Battery temperature", s.batteryTempC?.let { "%.1f C".format(it) } ?: "Unavailable")
+                      InfoRow("N7 ELITE memory use", "${s.appMemMb} MB")
+                  }
+
+                  GlassCard("NOT MEASURABLE") {
+                      Text("Game FPS and CPU or GPU temperature are not available to normal apps. N7 ELITE shows nothing instead of inventing a number.", fontSize = 13.sp)
+                  }
+
+                  GlassCard("ADVICE FROM YOUR READINGS") {
+                      tips.forEach { Text("- $it", fontSize = 13.sp, modifier = Modifier.padding(vertical = 3.dp)) }
+                  }
+
+                  GlassCard("GENERAL TIPS") {
+                      Dim("- Restart the phone every few days to clear memory.")
+                      Dim("- Turn on Do Not Disturb so calls do not interrupt matches.")
+                      Dim("- Use a stable Wi-Fi or strong mobile signal; ping matters more than any setting.")
+                      Dim("- Lower the in-game graphics quality if the phone gets hot or stutters.")
+                      Dim("- N7 ELITE cannot unlock FPS or change protected system settings, and does not promise to.")
+                  }
+              }
+          }
+          N7EOF
+          mkdir -p app/src/main/java/com/n7elite/gaming/ui
+          cat > app/src/main/java/com/n7elite/gaming/ui/ProfilesScreen.kt <<'N7EOF'
+          package com.n7elite.gaming.ui
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.n7elite.gaming.data.*
+
+          @Composable
+          fun ProfilesScreen(app: AppState, onBack: () -> Unit) {
+              var renaming by remember { mutableStateOf<Profile?>(null) }
+              var deleting by remember { mutableStateOf<Profile?>(null) }
+              var name by remember { mutableStateOf("") }
+
+              Column(
+                  Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                  verticalArrangement = Arrangement.spacedBy(14.dp)
+              ) {
+                  Header("PROFILES", onBack)
+
+                  GlassCard("NEW PROFILE") {
+                      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                          Btn("Rush", Modifier.weight(1f)) { app.addProfile("Rush") }
+                          Btn("Sniper", Modifier.weight(1f)) { app.addProfile("Sniper") }
+                      }
+                      Spacer(Modifier.height(8.dp))
+                      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                          Btn("Balanced", Modifier.weight(1f)) { app.addProfile("Balanced") }
+                          Btn("Custom", Modifier.weight(1f)) { app.addProfile("Custom") }
+                      }
+                  }
+
+                  app.profiles.forEach { p ->
+                      val isActive = p.id == app.activeId
+                      GlassCard(if (isActive) "ACTIVE PROFILE" else "PROFILE") {
+                          Text(p.name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                          Dim("Style: ${p.style}  |  Sensitivity: ${p.sens.v.joinToString("/")}")
+                          Dim("HUD: fire size ${p.hud.fireSize}, opacity ${p.hud.opacity}%")
+                          Text("Training difficulty", fontSize = 12.sp)
+                          Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                              DIFFS.forEachIndexed { i, d ->
+                                  Chip(d, p.difficulty == i) { app.update(p.copy(difficulty = i)) }
+                              }
+                          }
+                          Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                              if (!isActive) Btn("Use") { app.setActive(p.id) }
+                              TextButton(onClick = { name = p.name; renaming = p }) { Text("Rename") }
+                              TextButton(onClick = { app.duplicate(p) }) { Text("Duplicate") }
+                              TextButton(onClick = { deleting = p }, enabled = app.profiles.size > 1) { Text("Delete") }
+                          }
+                      }
+                  }
+              }
+
+              renaming?.let { r ->
+                  AlertDialog(
+                      onDismissRequest = { renaming = null },
+                      title = { Text("Rename profile") },
+                      text = { OutlinedTextField(value = name, onValueChange = { name = it.take(24) }, singleLine = true) },
+                      confirmButton = {
+                          TextButton(onClick = {
+                              app.update(r.copy(name = name.ifBlank { "Profile" }))
+                              app.log("Renamed profile to ${name.ifBlank { "Profile" }}")
+                              renaming = null
+                          }) { Text("Save") }
+                      },
+                      dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel") } }
+                  )
+              }
+              deleting?.let { d ->
+                  AlertDialog(
+                      onDismissRequest = { deleting = null },
+                      title = { Text("Delete ${d.name}?") },
+                      text = { Text("This cannot be undone.") },
+                      confirmButton = { TextButton(onClick = { app.delete(d); deleting = null }) { Text("Delete") } },
+                      dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } }
+                  )
+              }
+          }
+          N7EOF
+          mkdir -p app/src/main/java/com/n7elite/gaming/ui
+          cat > app/src/main/java/com/n7elite/gaming/ui/RecoilScreen.kt <<'N7EOF'
+          package com.n7elite.gaming.ui
+
+          import androidx.compose.foundation.Canvas
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.draw.clip
+          import androidx.compose.ui.geometry.Offset
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.graphics.drawscope.Stroke
+          import androidx.compose.ui.input.pointer.pointerInput
+          import androidx.compose.ui.platform.LocalDensity
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.n7elite.gaming.data.*
+          import com.n7elite.gaming.ui.theme.*
+          import kotlin.math.hypot
+          import kotlin.math.roundToInt
+          import kotlin.math.sin
+          import kotlin.random.Random
+          import kotlinx.coroutines.delay
+
+          val RECOIL = listOf("Vertical climb", "Drift right", "Zig-zag")
+
+          /** Where recoil pushes shot number i, in dp, relative to the target centre. */
+          fun recoilAt(pattern: Int, i: Int): Offset = when (pattern) {
+              0 -> Offset(0f, -i * 3.2f)
+              1 -> Offset(i * 1.0f, -i * 2.6f)
+              else -> Offset(sin(i * 0.7f) * 14f, -i * 2.4f)
+          }
+
+          fun scoreColor(s: Int): Color = when (s) {
+              10 -> Color(0xFF00E676)
+              6 -> Color(0xFFFFEA00)
+              3 -> Color(0xFFFF9100)
+              else -> Color.Gray
+          }
+
+          @Composable
+          fun RecoilScreen(app: AppState, onBack: () -> Unit) {
+              val dens = LocalDensity.current.density
+              var pattern by remember { mutableIntStateOf(0) }
+              val impacts = remember { mutableStateListOf<Offset>() }
+              val scores = remember { mutableStateListOf<Int>() }
+              var firing by remember { mutableStateOf(false) }
+              var startP by remember { mutableStateOf(Offset.Zero) }
+              var curP by remember { mutableStateOf(Offset.Zero) }
+              var done by remember { mutableStateOf(false) }
+              var runs by remember { mutableIntStateOf(0) }
+              var summary by remember { mutableStateOf("") }
+              val mag = 30
+
+              fun finishRun() {
+                  val total = scores.sum()
+                  val good = scores.count { it >= 6 }
+                  runs++
+                  summary = "Score $total / ${mag * 10}  |  ${good * 100 / mag}% of shots in the inner rings"
+                  if (total > app.recoilBest) {
+                      app.setRecoilBest(total)
+                      summary += "  |  NEW BEST!"
+                  }
+                  app.log("Recoil ${RECOIL[pattern]}: $total/${mag * 10}")
+                  done = true
+              }
+
+              LaunchedEffect(firing) {
+                  while (firing && impacts.size < mag) {
+                      val i = impacts.size
+                      val r = recoilAt(pattern, i)
+                      val comp = (curP - startP) / dens
+                      val jitter = Offset(Random.nextFloat() * 6f - 3f, Random.nextFloat() * 6f - 3f)
+                      val imp = Offset(r.x + comp.x, r.y + comp.y) + jitter
+                      val d = hypot(imp.x, imp.y)
+                      impacts.add(imp)
+                      scores.add(if (d <= 15f) 10 else if (d <= 35f) 6 else if (d <= 60f) 3 else 0)
+                      delay(100)
+                  }
+                  if (firing && impacts.size >= mag) {
+                      firing = false
+                      finishRun()
+                  }
+              }
+
+              val shown = impacts.size
+              val pull = if (shown > 0) -recoilAt(pattern, shown - 1).y else 0f
+              val counter = if (firing) (curP.y - startP.y) / dens else 0f
+
+              Column(
+                  Modifier.fillMaxSize().verticalScroll(rememberScrollState(), enabled = !firing).padding(16.dp),
+                  verticalArrangement = Arrangement.spacedBy(12.dp)
+              ) {
+                  Header("RECOIL SIMULATOR", onBack)
+
+                  GlassCard("HOW IT WORKS") {
+                      Dim("A standalone practice game. Press and hold on the target area to fire. The shots climb (red dots show the climb). Slide your finger DOWN while firing to pull the shots back to the centre. Nothing here touches Free Fire.")
+                      Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                          RECOIL.forEachIndexed { i, n -> Chip(n, pattern == i, enabled = !firing) { pattern = i } }
+                      }
+                      Btn("New magazine", enabled = !firing) {
+                          impacts.clear(); scores.clear(); done = false; summary = ""
+                      }
+                  }
+
+                  Text(
+                      "Shots $shown/$mag   Score ${scores.sum()}   Pull ${pull.roundToInt()} dp   Your counter ${counter.roundToInt()} dp",
+                      fontWeight = FontWeight.Bold, fontSize = 13.sp
+                  )
+
+                  Box(
+                      Modifier
+                          .fillMaxWidth()
+                          .height(380.dp)
+                          .clip(RoundedCornerShape(14.dp))
+                          .background(Color(0xFF0E1620))
+                          .pointerInput(Unit) {
+                              awaitPointerEventScope {
+                                  while (true) {
+                                      val ev = awaitPointerEvent()
+                                      val c = ev.changes.firstOrNull() ?: continue
+                                      if (!done) {
+                                          if (c.pressed && !c.previousPressed) {
+                                              startP = c.position
+                                              curP = c.position
+                                              firing = true
+                                          } else if (c.pressed) {
+                                              curP = c.position
+                                          } else if (c.previousPressed) {
+                                              firing = false
+                                          }
+                                          c.consume()
+                                      }
+                                  }
+                              }
+                          }
+                  ) {
+                      Canvas(Modifier.fillMaxSize()) {
+                          val centre = Offset(size.width / 2f, size.height * 0.42f)
+                          drawCircle(Color(0x33FFFFFF), 60f * dens, centre, style = Stroke(2f))
+                          drawCircle(Color(0x55FFFFFF), 35f * dens, centre, style = Stroke(2f))
+                          drawCircle(Color(0x99FFFFFF), 15f * dens, centre, style = Stroke(2f))
+                          for (i in 0 until mag) {
+                              val r = recoilAt(pattern, i)
+                              drawCircle(Color(0x44FF1744), 2.5f * dens, Offset(centre.x + r.x * dens, centre.y + r.y * dens))
+                          }
+                          impacts.forEachIndexed { i, o ->
+                              drawCircle(scoreColor(scores[i]), 4f * dens, Offset(centre.x + o.x * dens, centre.y + o.y * dens))
+                          }
+                          if (firing) drawLine(N7Blue, startP, curP, 4f)
+                      }
+                      if (shown == 0 && !firing) {
+                          Text("Press and hold here to fire", Modifier.align(Alignment.BottomCenter).padding(16.dp), color = N7TextDim)
+                      }
+                      if (done) {
+                          Text(
+                              summary, Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                              color = N7Blue, fontWeight = FontWeight.Bold
+                          )
+                      }
+                  }
+
+                  GlassCard("STATISTICS") {
+                      InfoRow("Best magazine score", "${app.recoilBest} / ${mag * 10}")
+                      InfoRow("Magazines this session", "$runs")
+                      Dim("Scoring: inner ring 10, middle 6, outer 3. Green dots are your shots, red dots are where recoil alone would send them.")
+                  }
+              }
+          }
+          N7EOF
+          mkdir -p app/src/main/java/com/n7elite/gaming/ui
+          cat > app/src/main/java/com/n7elite/gaming/ui/SensitivityScreen.kt <<'N7EOF'
+          package com.n7elite.gaming.ui
+
+          import android.content.Intent
+          import androidx.compose.foundation.Canvas
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.gestures.detectDragGestures
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.geometry.Offset
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.graphics.drawscope.Stroke
+          import androidx.compose.ui.input.pointer.pointerInput
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.n7elite.gaming.data.*
+          import com.n7elite.gaming.ui.theme.*
+          import kotlin.math.roundToInt
+
+          @Composable
+          fun SensitivityScreen(app: AppState, onBack: () -> Unit) {
+              val ctx = LocalContext.current
+              val p = app.active
+              var sel by remember { mutableIntStateOf(0) }
+              var dot by remember { mutableStateOf(Offset(-1f, -1f)) }
+              var padInfo by remember { mutableStateOf("Drag inside the pad to feel the sensitivity") }
+              var importText by remember { mutableStateOf("") }
+              var importMsg by remember { mutableStateOf("") }
+              val base = Sens.template(p.style)
+              val dpi = ctx.resources.displayMetrics.densityDpi
+
+              Column(
+                  Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                  verticalArrangement = Arrangement.spacedBy(14.dp)
+              ) {
+                  Header("SENSITIVITY", onBack)
+
+                  GlassCard("PROFILE: ${p.name}") {
+                      SENS_LABELS.forEachIndexed { i, label ->
+                          Row(verticalAlignment = Alignment.CenterVertically) {
+                              Text(label, Modifier.weight(1f), fontWeight = if (sel == i) FontWeight.Bold else FontWeight.Normal)
+                              Text("${p.sens.v[i]}", color = N7Blue, fontWeight = FontWeight.Bold)
+                              TextButton(onClick = {
+                                  sel = i
+                                  app.update(p.copy(sens = p.sens.set(i, base.v[i])))
+                                  app.log("Reset $label sensitivity")
+                              }) { Text("Reset") }
+                          }
+                          Slider(
+                              value = p.sens.v[i].toFloat(),
+                              onValueChange = {
+                                  sel = i
+                                  app.update(p.copy(sens = p.sens.set(i, it.roundToInt())), save = false)
+                              },
+                              valueRange = 0f..100f,
+                              onValueChangeFinished = {
+                                  app.save()
+                                  app.log("$label set to ${app.active.sens.v[i]}")
+                              },
+                              colors = SliderDefaults.colors(thumbColor = N7Red, activeTrackColor = N7Red)
+                          )
+                      }
+                      Btn("Reset all to ${p.style} start") {
+                          app.update(p.copy(sens = base))
+                          app.log("Reset all sensitivities")
+                      }
+                  }
+
+                  GlassCard("LIVE PREVIEW: ${SENS_LABELS[sel]} (${p.sens.v[sel]})") {
+                      val factor = p.sens.v[sel] / 50f
+                      Box(
+                          Modifier
+                              .fillMaxWidth()
+                              .height(180.dp)
+                              .background(Color(0x22000000), RoundedCornerShape(12.dp))
+                              .pointerInput(factor) {
+                                  detectDragGestures { change, drag ->
+                                      change.consume()
+                                      val cur = if (dot.x < 0f) Offset(size.width / 2f, size.height / 2f) else dot
+                                      dot = Offset(
+                                          (cur.x + drag.x * factor).coerceIn(0f, size.width.toFloat()),
+                                          (cur.y + drag.y * factor).coerceIn(0f, size.height.toFloat())
+                                      )
+                                      padInfo = "Finger ${drag.x.roundToInt()},${drag.y.roundToInt()} px -> crosshair ${(drag.x * factor).roundToInt()},${(drag.y * factor).roundToInt()} px"
+                                  }
+                              }
+                      ) {
+                          Canvas(Modifier.fillMaxSize()) {
+                              val c = if (dot.x < 0f) Offset(size.width / 2f, size.height / 2f) else dot
+                              drawLine(N7Red, Offset(c.x - 18f, c.y), Offset(c.x + 18f, c.y), 3f)
+                              drawLine(N7Red, Offset(c.x, c.y - 18f), Offset(c.x, c.y + 18f), 3f)
+                              drawCircle(N7Blue, 10f, c, style = Stroke(2f))
+                          }
+                      }
+                      Dim(padInfo)
+                      Dim("Higher value = the crosshair moves farther for the same swipe. 50 is 1:1 in this preview. Move any slider above to change what is previewed.")
+                  }
+
+                  GlassCard("STARTING POINTS") {
+                      Dim("Common starting values by play style, not guaranteed best for you. Test them in Aim Training, then adjust.")
+                      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                          listOf("Rush", "Balanced", "Sniper").forEach { s ->
+                              Btn(s, Modifier.weight(1f)) {
+                                  app.update(p.copy(sens = Sens.template(s)))
+                                  app.log("Applied $s starting values")
+                              }
+                          }
+                      }
+                  }
+
+                  val recent = app.records.filter { it.mode != "Tracking" }.take(5)
+                  GlassCard("TUNE FROM YOUR TRAINING") {
+                      if (recent.size < 3) {
+                          Text("Play at least 3 Static, Moving or Reaction rounds in Aim Training. Suggestions use your real accuracy.", fontSize = 13.sp)
+                      } else {
+                          val avg = recent.map { it.accuracy }.average().roundToInt()
+                          val delta = if (avg < 55) -5 else if (avg > 85) 5 else 0
+                          Text("Average accuracy over your last ${recent.size} rounds: $avg%", fontWeight = FontWeight.Bold)
+                          Text(
+                              when (delta) {
+                                  -5 -> "Many misses. Try lowering General and Red Dot by 5 for steadier control."
+                                  5 -> "Very accurate. You can try raising General and Red Dot by 5 for faster turns."
+                                  else -> "Accuracy is in a good range. Keep your values and keep training."
+                              },
+                              fontSize = 13.sp
+                          )
+                          if (delta != 0) {
+                              Spacer(Modifier.height(6.dp))
+                              Btn("Apply suggestion") {
+                                  val s = p.sens.set(0, p.sens.v[0] + delta).set(1, p.sens.v[1] + delta)
+                                  app.update(p.copy(sens = s))
+                                  app.log("Applied suggestion ($delta) to General and Red Dot")
+                              }
+                          }
+                      }
+                      Dim("A simple rule of thumb from your own results. It cannot promise more headshots.")
+                  }
+
+                  GlassCard("ABOUT DPI") {
+                      Text("Your phone screen density is $dpi dpi (real value from your device).", fontSize = 13.sp)
+                      Dim("Free Fire's own settings use the sensitivity values above, not a DPI setting. Changing the phone's screen DPI in developer options does not reliably improve aim and can break the display, so N7 ELITE does not touch it.")
+                  }
+
+                  GlassCard("EXPORT / IMPORT") {
+                      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                          Btn("Export", Modifier.weight(1f)) {
+                              val i = Intent(Intent.ACTION_SEND).apply {
+                                  type = "text/plain"
+                                  putExtra(Intent.EXTRA_TEXT, app.exportJson(p))
+                              }
+                              ctx.startActivity(Intent.createChooser(i, "Export profile"))
+                          }
+                          Btn("Save as new", Modifier.weight(1f)) { app.duplicate(p) }
+                      }
+                      Spacer(Modifier.height(8.dp))
+                      OutlinedTextField(
+                          value = importText,
+                          onValueChange = { importText = it },
+                          label = { Text("Paste a configuration here") },
+                          modifier = Modifier.fillMaxWidth()
+                      )
+                      Spacer(Modifier.height(6.dp))
+                      Btn("Import") {
+                          importMsg = app.importJson(importText)
+                          if (importMsg.startsWith("Imported")) importText = ""
+                      }
+                      if (importMsg.isNotEmpty()) Dim(importMsg)
+                  }
+              }
+          }
+          N7EOF
+          mkdir -p app/src/main/java/com/n7elite/gaming/ui
+          cat > app/src/main/java/com/n7elite/gaming/ui/SettingsScreen.kt <<'N7EOF'
+          package com.n7elite.gaming.ui
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.n7elite.gaming.data.*
+
+          @Composable
+          fun SettingsScreen(app: AppState, onBack: () -> Unit) {
+              var confirm by remember { mutableStateOf(false) }
+
+              Column(
+                  Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                  verticalArrangement = Arrangement.spacedBy(14.dp)
+              ) {
+                  Header("SETTINGS", onBack)
+
+                  GlassCard("FEEDBACK") {
+                      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                          Text("Vibrate on training hits")
+                          Switch(checked = app.haptics, onCheckedChange = { app.setHaptics(it) })
+                      }
+                  }
+
+                  GlassCard("DATA") {
+                      Text("Profiles, records and settings are stored only on this phone and work offline.", fontSize = 13.sp)
+                      Spacer(Modifier.height(8.dp))
+                      Btn("Reset all data") { confirm = true }
+                  }
+
+                  GlassCard("ABOUT") {
+                      Text("N7 ELITE 0.2.0", fontSize = 14.sp)
+                      Dim("No permissions requested. N7 ELITE never modifies Free Fire, reads game memory, injects overlays or automates play. Sensitivity values are your own presets to enter in the game by hand.")
+                  }
+              }
+
+              if (confirm) {
+                  AlertDialog(
+                      onDismissRequest = { confirm = false },
+                      title = { Text("Reset all data?") },
+                      text = { Text("This deletes all profiles, records and best scores.") },
+                      confirmButton = { TextButton(onClick = { app.resetAll(); confirm = false }) { Text("Reset") } },
+                      dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancel") } }
+                  )
+              }
+          }
+          N7EOF
+          mkdir -p app/src/main/java/com/n7elite/gaming/ui/theme
+          cat > app/src/main/java/com/n7elite/gaming/ui/theme/Theme.kt <<'N7EOF'
+          package com.n7elite.gaming.ui.theme
+
+          import androidx.compose.material3.LocalContentColor
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.darkColorScheme
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.CompositionLocalProvider
+          import androidx.compose.ui.graphics.Color
+
+          val N7Black = Color(0xFF0B0B0F)
+          val N7Charcoal = Color(0xFF16161D)
+          val N7Red = Color(0xFFFF1744)
+          val N7Blue = Color(0xFF29B6F6)
+          val N7TextDim = Color(0xFF9A9AA8)
+          val N7Text = Color(0xFFF2F2F7)
+
+          private val N7Colors = darkColorScheme(
+              primary = N7Red,
+              secondary = N7Blue,
+              background = N7Black,
+              surface = N7Charcoal,
+              onPrimary = Color.White,
+              onSecondary = Color.Black,
+              onBackground = N7Text,
+              onSurface = N7Text
+          )
+
+          @Composable
+          fun N7Theme(content: @Composable () -> Unit) {
+              MaterialTheme(colorScheme = N7Colors) {
+                  CompositionLocalProvider(LocalContentColor provides N7Text, content = content)
+              }
+          }
+          N7EOF
           mkdir -p app/src/main/res/values
           cat > app/src/main/res/values/strings.xml <<'N7EOF'
           <resources>
@@ -139,265 +1805,35 @@ jobs:
               </style>
           </resources>
           N7EOF
-          mkdir -p app/src/main/java/com/n7elite/gaming
-          cat > app/src/main/java/com/n7elite/gaming/MainActivity.kt <<'N7EOF'
-          package com.n7elite.gaming
-
-          import android.os.Bundle
-          import androidx.activity.ComponentActivity
-          import androidx.activity.compose.setContent
-          import com.n7elite.gaming.ui.DashboardScreen
-          import com.n7elite.gaming.ui.theme.N7Theme
-
-          class MainActivity : ComponentActivity() {
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  setContent {
-                      N7Theme {
-                          DashboardScreen()
-                      }
-                  }
-              }
+          cat > build.gradle.kts <<'N7EOF'
+          plugins {
+              id("com.android.application") version "8.5.2" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
           }
           N7EOF
-          mkdir -p app/src/main/java/com/n7elite/gaming/ui/theme
-          cat > app/src/main/java/com/n7elite/gaming/ui/theme/Theme.kt <<'N7EOF'
-          package com.n7elite.gaming.ui.theme
-
-          import androidx.compose.material3.MaterialTheme
-          import androidx.compose.material3.darkColorScheme
-          import androidx.compose.runtime.Composable
-          import androidx.compose.ui.graphics.Color
-
-          val N7Black = Color(0xFF0B0B0F)
-          val N7Charcoal = Color(0xFF16161D)
-          val N7Red = Color(0xFFFF1744)
-          val N7Blue = Color(0xFF29B6F6)
-          val N7TextDim = Color(0xFF9A9AA8)
-
-          private val N7Colors = darkColorScheme(
-              primary = N7Red,
-              secondary = N7Blue,
-              background = N7Black,
-              surface = N7Charcoal,
-              onPrimary = Color.White,
-              onSecondary = Color.Black,
-              onBackground = Color(0xFFF2F2F7),
-              onSurface = Color(0xFFF2F2F7)
-          )
-
-          @Composable
-          fun N7Theme(content: @Composable () -> Unit) {
-              MaterialTheme(colorScheme = N7Colors, content = content)
-          }
+          cat > gradle.properties <<'N7EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          kotlin.code.style=official
+          android.nonTransitiveRClass=true
           N7EOF
-          mkdir -p app/src/main/java/com/n7elite/gaming/data
-          cat > app/src/main/java/com/n7elite/gaming/data/DeviceReader.kt <<'N7EOF'
-          package com.n7elite.gaming.data
-
-          import android.app.ActivityManager
-          import android.content.Context
-          import android.content.Intent
-          import android.content.IntentFilter
-          import android.os.BatteryManager
-          import android.os.Build
-          import android.os.Environment
-          import android.os.StatFs
-
-          /** Real values read from the phone. Null means "Android did not give us this value". */
-          data class DeviceSnapshot(
-              val model: String,
-              val androidVersion: String,
-              val totalRamMb: Long,
-              val availRamMb: Long,
-              val totalStorageGb: Double,
-              val freeStorageGb: Double,
-              val batteryPercent: Int?,
-              val batteryTempC: Float?
-          )
-
-          object DeviceReader {
-              fun read(context: Context): DeviceSnapshot {
-                  val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-                  val mem = ActivityManager.MemoryInfo()
-                  am.getMemoryInfo(mem)
-
-                  val stat = StatFs(Environment.getDataDirectory().path)
-                  val gb = 1024.0 * 1024.0 * 1024.0
-
-                  val battery: Intent? = context.registerReceiver(
-                      null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-                  )
-                  val level = battery?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-                  val scale = battery?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-                  val percent = if (level >= 0 && scale > 0) level * 100 / scale else null
-                  val tempRaw = battery?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
-                  val temp = if (tempRaw != null && tempRaw != Int.MIN_VALUE) tempRaw / 10f else null
-
-                  return DeviceSnapshot(
-                      model = "${Build.MANUFACTURER} ${Build.MODEL}",
-                      androidVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
-                      totalRamMb = mem.totalMem / (1024 * 1024),
-                      availRamMb = mem.availMem / (1024 * 1024),
-                      totalStorageGb = stat.totalBytes / gb,
-                      freeStorageGb = stat.availableBytes / gb,
-                      batteryPercent = percent,
-                      batteryTempC = temp
-                  )
+          cat > settings.gradle.kts <<'N7EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
               }
           }
-          N7EOF
-          mkdir -p app/src/main/java/com/n7elite/gaming/ui
-          cat > app/src/main/java/com/n7elite/gaming/ui/DashboardScreen.kt <<'N7EOF'
-          package com.n7elite.gaming.ui
-
-          import androidx.compose.foundation.BorderStroke
-          import androidx.compose.foundation.background
-          import androidx.compose.foundation.layout.Arrangement
-          import androidx.compose.foundation.layout.Column
-          import androidx.compose.foundation.layout.Row
-          import androidx.compose.foundation.layout.fillMaxSize
-          import androidx.compose.foundation.layout.fillMaxWidth
-          import androidx.compose.foundation.layout.padding
-          import androidx.compose.foundation.layout.statusBarsPadding
-          import androidx.compose.foundation.lazy.LazyColumn
-          import androidx.compose.foundation.shape.RoundedCornerShape
-          import androidx.compose.material3.Button
-          import androidx.compose.material3.ButtonDefaults
-          import androidx.compose.material3.Card
-          import androidx.compose.material3.CardDefaults
-          import androidx.compose.material3.Text
-          import androidx.compose.runtime.Composable
-          import androidx.compose.runtime.getValue
-          import androidx.compose.runtime.mutableStateOf
-          import androidx.compose.runtime.remember
-          import androidx.compose.runtime.setValue
-          import androidx.compose.ui.Alignment
-          import androidx.compose.ui.Modifier
-          import androidx.compose.ui.graphics.Brush
-          import androidx.compose.ui.graphics.Color
-          import androidx.compose.ui.platform.LocalContext
-          import androidx.compose.ui.text.font.FontFamily
-          import androidx.compose.ui.text.font.FontWeight
-          import androidx.compose.ui.unit.dp
-          import androidx.compose.ui.unit.sp
-          import com.n7elite.gaming.data.DeviceReader
-          import com.n7elite.gaming.ui.theme.N7Black
-          import com.n7elite.gaming.ui.theme.N7Blue
-          import com.n7elite.gaming.ui.theme.N7Charcoal
-          import com.n7elite.gaming.ui.theme.N7Red
-          import com.n7elite.gaming.ui.theme.N7TextDim
-
-          @Composable
-          fun DashboardScreen() {
-              val context = LocalContext.current
-              var snapshot by remember { mutableStateOf(DeviceReader.read(context)) }
-
-              LazyColumn(
-                  modifier = Modifier
-                      .fillMaxSize()
-                      .background(Brush.verticalGradient(listOf(N7Black, N7Charcoal)))
-                      .statusBarsPadding(),
-                  contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-                  verticalArrangement = Arrangement.spacedBy(14.dp)
-              ) {
-                  item {
-                      Column {
-                          Text(
-                              "N7 ELITE",
-                              color = N7Red,
-                              fontSize = 34.sp,
-                              fontWeight = FontWeight.Black,
-                              fontFamily = FontFamily.Monospace,
-                              letterSpacing = 4.sp
-                          )
-                          Text("Gaming control panel", color = N7Blue, fontSize = 13.sp, letterSpacing = 2.sp)
-                      }
-                  }
-
-                  item {
-                      GlassCard(title = "ACTIVE PROFILE") {
-                          Text("Balanced Player", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                          Text(
-                              "Default profile. Profile editing arrives in Stage 3.",
-                              color = N7TextDim, fontSize = 12.sp
-                          )
-                      }
-                  }
-
-                  item {
-                      GlassCard(title = "DEVICE") {
-                          InfoRow("Model", snapshot.model)
-                          InfoRow("System", snapshot.androidVersion)
-                          InfoRow("RAM free", "${snapshot.availRamMb} MB of ${snapshot.totalRamMb} MB")
-                          InfoRow(
-                              "Storage free",
-                              "%.1f GB of %.1f GB".format(snapshot.freeStorageGb, snapshot.totalStorageGb)
-                          )
-                          InfoRow("Battery", snapshot.batteryPercent?.let { "$it%" } ?: "Unavailable")
-                          InfoRow(
-                              "Battery temp",
-                              snapshot.batteryTempC?.let { "%.1f °C".format(it) } ?: "Unavailable"
-                          )
-                          InfoRow("Live FPS", "Not measurable by this app")
-                          Button(
-                              onClick = { snapshot = DeviceReader.read(context) },
-                              colors = ButtonDefaults.buttonColors(containerColor = N7Red),
-                              modifier = Modifier.padding(top = 10.dp)
-                          ) { Text("Refresh") }
-                      }
-                  }
-
-                  item {
-                      GlassCard(title = "MODULES") {
-                          ModuleRow("Sensitivity Manager", "Stage 2")
-                          ModuleRow("Gaming Profiles", "Stage 3")
-                          ModuleRow("HUD Configurator", "Stage 4")
-                          ModuleRow("Aim Training", "Stage 5")
-                          ModuleRow("Recoil Simulator", "Stage 6")
-                          ModuleRow("Device Performance", "Stage 7")
-                      }
-                  }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
               }
           }
-
-          @Composable
-          private fun GlassCard(title: String, content: @Composable () -> Unit) {
-              Card(
-                  modifier = Modifier.fillMaxWidth(),
-                  shape = RoundedCornerShape(18.dp),
-                  colors = CardDefaults.cardColors(containerColor = Color(0x33FFFFFF)),
-                  border = BorderStroke(1.dp, Brush.linearGradient(listOf(N7Red, N7Blue)))
-              ) {
-                  Column(Modifier.padding(16.dp)) {
-                      Text(title, color = N7Blue, fontSize = 12.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
-                      Column(Modifier.padding(top = 8.dp)) { content() }
-                  }
-              }
-          }
-
-          @Composable
-          private fun InfoRow(label: String, value: String) {
-              Row(
-                  Modifier.fillMaxWidth().padding(vertical = 3.dp),
-                  horizontalArrangement = Arrangement.SpaceBetween,
-                  verticalAlignment = Alignment.CenterVertically
-              ) {
-                  Text(label, color = N7TextDim, fontSize = 13.sp)
-                  Text(value, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-              }
-          }
-
-          @Composable
-          private fun ModuleRow(name: String, stage: String) {
-              Row(
-                  Modifier.fillMaxWidth().padding(vertical = 5.dp),
-                  horizontalArrangement = Arrangement.SpaceBetween
-              ) {
-                  Text(name, fontSize = 14.sp)
-                  Text("Coming in $stage", color = N7TextDim, fontSize = 12.sp)
-              }
-          }
+          rootProject.name = "N7ELITE"
+          include(":app")
           N7EOF
 
       - name: Build debug APK
